@@ -2,7 +2,109 @@ window.onload = function() {
   setupLoginSection()
   setupTextSection()
   setupImageSection()
+  setupCanvasSection()
   setupEscPosSection()
+}
+
+function setupCanvasSection() {
+  const ctx = drawCanvas.getContext('2d')
+
+  function resetCanvas() {
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(0, 0, drawCanvas.width, drawCanvas.height)
+  }
+  resetCanvas()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.strokeStyle = '#000'
+
+  let drawing = false
+  let lastX = 0
+  let lastY = 0
+
+  function pointerPos(event) {
+    const rect = drawCanvas.getBoundingClientRect()
+    return {
+      x: (event.clientX - rect.left) * (drawCanvas.width / rect.width),
+      y: (event.clientY - rect.top) * (drawCanvas.height / rect.height),
+    }
+  }
+
+  drawCanvas.addEventListener('pointerdown', (event) => {
+    drawing = true
+    drawCanvas.setPointerCapture(event.pointerId)
+    const { x, y } = pointerPos(event)
+    lastX = x
+    lastY = y
+    // Draw a dot so single clicks register.
+    ctx.lineWidth = brushSize.value
+    ctx.beginPath()
+    ctx.arc(x, y, brushSize.value / 2, 0, Math.PI * 2)
+    ctx.fillStyle = '#000'
+    ctx.fill()
+  })
+
+  drawCanvas.addEventListener('pointermove', (event) => {
+    if (!drawing) return
+    const { x, y } = pointerPos(event)
+    ctx.lineWidth = brushSize.value
+    ctx.beginPath()
+    ctx.moveTo(lastX, lastY)
+    ctx.lineTo(x, y)
+    ctx.stroke()
+    lastX = x
+    lastY = y
+  })
+
+  function stopDrawing() {
+    drawing = false
+  }
+  drawCanvas.addEventListener('pointerup', stopDrawing)
+  drawCanvas.addEventListener('pointercancel', stopDrawing)
+  drawCanvas.addEventListener('pointerleave', stopDrawing)
+
+  clearCanvasButton.addEventListener('click', resetCanvas)
+
+  if (!getReceiptCsrfCookie()) {
+    printCanvasButton.disabled = true
+  } else {
+    printCanvasButton.disabled = false
+  }
+
+  printCanvasButton.addEventListener('click', async (event) => {
+    printCanvasButton.disabled = true
+    initResponseDiv(canvasResponseDiv, 'Response: (pending...)')
+    const res = await sendCanvasToPrinter(drawCanvas)
+    const jsonBody = await res.json()
+    initResponseDiv(canvasResponseDiv, 'Response:')
+    updateResponseDiv(canvasResponseDiv, res.status, jsonBody)
+    printCanvasButton.disabled = false
+  })
+}
+
+function sendCanvasToPrinter(canvas) {
+  const csrf = getReceiptCsrfCookie()
+  if (!csrf) {
+    console.error('You are not logged into Receipt API Server! Aborting...')
+    return
+  }
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error('Failed to convert canvas to image'))
+        return
+      }
+      resolve(fetch('https://receipt.recurse.com/image', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'X-CSRF-Token': csrf,
+        },
+        body: blob,
+      }))
+    }, 'image/png')
+  })
 }
 
 function setupEscPosSection() {

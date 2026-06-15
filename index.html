@@ -23,6 +23,16 @@
 <div style="margin-top: 4px"><button id="printImageButton" disabled>Print</button></div>
 <div id="imageResponseDiv">
 </div>
+<h2>Draw an image</h2>
+<canvas id="drawCanvas" width="384" height="384" style="border: 1px solid #000; touch-action: none; cursor: crosshair"></canvas>
+<div style="margin-top: 4px">
+  Brush:
+  <input type="range" id="brushSize" min="1" max="40" value="6" />
+  <button id="clearCanvasButton">Clear</button>
+  <button id="printCanvasButton" disabled>Print</button>
+</div>
+<div id="canvasResponseDiv">
+</div>
 <h2>Send raw ESC/POS (under construction)</h2>
 <p>Input ESC/POS in hexadecimal.</p>
 <textarea id="escPosField"></textarea>
