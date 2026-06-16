@@ -24,7 +24,7 @@ let rec simplify t =
     let b = simplify b in
     (match b with
      | C 0 -> a
-     | _ when equal a b -> C(0)
+     | _ when equal a b -> C 0
      | _ -> Sub (a, b))
   | _ -> t
 ;;
@@ -74,6 +74,7 @@ let remap color min max =
   match range with
   | 0 -> color
   | _ -> Int.of_float (Float.of_int (color - min) *. ratio)
+;;
 
 let tonemap image_data =
   let min_value = ref 255 in
@@ -82,7 +83,7 @@ let tonemap image_data =
     for x = 0 to 255 do
       let color = Image_data.get_r image_data ~x ~y in
       if color < !min_value then min_value := color;
-      if color > !max_value then max_value := color;
+      if color > !max_value then max_value := color
     done
   done;
   for y = 0 to 255 do
@@ -95,36 +96,38 @@ let tonemap image_data =
 ;;
 
 let () =
-  Js.Unsafe.global##.foo := Js.wrap_callback (fun () ->
-  let document = Dom_html.document in
-  let body = document##.body in
-  let c = Canvas.create ~width:256 ~height:256 in
-  let ctx = Canvas.ctx2d c in
-  let image_data = Ctx2d.get_image_data ctx in
-  evil_thing image_data (And (X, Y));
-  (* let t = MirrorY (MirrorX (Xor (Mul(X, C(2)), Y))) in *)
-  (* let () = Quickcheck.random_value in *)
-  let rec generate () =
-    let t =
-      simplify
-        (Quickcheck.random_value ~size:4 ~seed:`Nondeterministic quickcheck_generator)
-    in
-    let s = size t in
-    if s > 5 then t else generate ()
-  in
-  let t = generate () in
-  let equation = Sexp.to_string (sexp_of_t t) in
-  evil_thing image_data t;
-  tonemap image_data;
-  Ctx2d.put_image_data ctx image_data ~x:0 ~y:0;
-
-  let c2 = Canvas.create ~width:512 ~height:512 in
-  let ctx2 = Canvas.ctx2d c2 in
-  Ctx2d.draw_canvas ~sw:256.0 ~sh:256.0 ~w:512.0 ~h:512.0 ctx2 c ~x:0.0 ~y:0.0;
-  ignore (body##appendChild (Canvas.dom_element c2 :> Dom.node Js.t));
-  object%js
-      val c = Canvas.dom_element c2
-      val e = Js.string equation
-  end
-  )
+  Js.Unsafe.global##.foo
+  := Js.wrap_callback (fun () ->
+       let document = Dom_html.document in
+       let body = document##.body in
+       let c = Canvas.create ~width:256 ~height:256 in
+       let ctx = Canvas.ctx2d c in
+       let image_data = Ctx2d.get_image_data ctx in
+       evil_thing image_data (And (X, Y));
+       (* let t = MirrorY (MirrorX (Xor (Mul(X, C(2)), Y))) in *)
+       (* let () = Quickcheck.random_value in *)
+       let rec generate () =
+         let t =
+           simplify
+             (Quickcheck.random_value
+                ~size:4
+                ~seed:`Nondeterministic
+                quickcheck_generator)
+         in
+         let s = size t in
+         if s > 5 then t else generate ()
+       in
+       let t = generate () in
+       let equation = Sexp.to_string_hum ~indent:2 ~max_width:42 (sexp_of_t t) in
+       evil_thing image_data t;
+       tonemap image_data;
+       Ctx2d.put_image_data ctx image_data ~x:0 ~y:0;
+       let c2 = Canvas.create ~width:512 ~height:512 in
+       let ctx2 = Canvas.ctx2d c2 in
+       Ctx2d.draw_canvas ~sw:256.0 ~sh:256.0 ~w:512.0 ~h:512.0 ctx2 c ~x:0.0 ~y:0.0;
+       ignore (body##appendChild (Canvas.dom_element c2 :> Dom.node Js.t));
+       object%js
+         val c = Canvas.dom_element c2
+         val e = Js.string equation
+       end)
 ;;
