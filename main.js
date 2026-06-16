@@ -14,7 +14,7 @@ function sendCanvasToPrinter(canvas) {
     console.error("You are not logged into Receipt API Server! Aborting...");
     return;
   }
-  canvas.toBlob(() => {
+  canvas.toBlob((blob) => {
     fetch("https://receipt.recurse.com/image", {
       method: "POST",
       credentials: "include",
