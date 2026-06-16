@@ -152,8 +152,6 @@ let tonemap image_data =
 let () =
   Js.Unsafe.global##.foo
   := Js.wrap_callback (fun () ->
-       let document = Dom_html.document in
-       let body = document##.body in
        let c = Canvas.create ~width:256 ~height:256 in
        let ctx = Canvas.ctx2d c in
        let image_data = Ctx2d.get_image_data ctx in
@@ -179,7 +177,6 @@ let () =
        let c2 = Canvas.create ~width:512 ~height:512 in
        let ctx2 = Canvas.ctx2d c2 in
        Ctx2d.draw_canvas ~sw:256.0 ~sh:256.0 ~w:512.0 ~h:512.0 ctx2 c ~x:0.0 ~y:0.0;
-       ignore (body##appendChild (Canvas.dom_element c2 :> Dom.node Js.t));
        object%js
          val c = Canvas.dom_element c2
          val e = Js.string equation

@@ -19,15 +19,21 @@ canvas {
 </head>
 <body>
   <div id="loginDiv"></div>
+  <div id="content"></div>
 <script src="main.js"></script>
 <script src="receipt_math.js"></script>
-<script>
+<script type="module">
+  function nextFrame() {
+    return new Promise(requestAnimationFrame);
+  }
   setupLoginSection();
-  for (let i = 0; i < 6; ++i) {
+  for (let i = 0; i < 50; ++i) {
     const { c, e } = foo();
     c.addEventListener('click', ev => {
       sendCanvasToPrinter(c, e);
     });
+    content.appendChild(c);
+    await nextFrame();
   }
 </script>
 </body>
