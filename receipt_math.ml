@@ -8,6 +8,7 @@ type t =
   | Y
   | Xor of t * t
   | And of t * t
+  | Or of t * t
   | MirrorX of t
   | MirrorY of t
   | Add of t * t
@@ -18,7 +19,8 @@ type t =
 
 let rec simplify t =
   match t with
-  | X | Y | C _ -> t
+  | X | Y -> t
+  | C t -> C(t % 256)
   | Sub (a, b) ->
     let a = simplify a in
     let b = simplify b in
@@ -26,14 +28,65 @@ let rec simplify t =
      | C 0 -> a
      | _ when equal a b -> C 0
      | _ -> Sub (a, b))
-  | _ -> t
+  | Add (a, b) ->
+    let a = simplify a in
+    let b = simplify b in
+    (match a, b with
+     | C 0, _ -> b
+     | _, C 0 -> a
+     | _ -> Add (a, b))
+  | Mod (a, b) ->
+    let a = simplify a in
+    let b = simplify b in
+    (match b with
+     | C 0 -> a
+     | _ -> Mod (a, b))
+  | Mul (a, b) ->
+    let a = simplify a in
+    let b = simplify b in
+    (match a,b with
+     | C 0, _ | _, C 0 -> C 0
+     | x, C 1 | C 1, x -> x
+     | _ -> Mul (a, b))
+  | Xor (a, b) ->
+    let a = simplify a in
+    let b = simplify b in
+    (match a,b with
+     | _ when equal a b -> C 0
+     | _ -> Xor (a, b))
+  | And (a, b) ->
+    let a = simplify a in
+    let b = simplify b in
+    (match a,b with
+     | _ when equal a b -> a
+     | _ -> And (a, b))
+  | Or (a, b) ->
+    let a = simplify a in
+    let b = simplify b in
+    (match a,b with
+     | _ when equal a b -> a
+     | _ -> Or (a, b))
+  | MirrorX (a) ->
+    let a = simplify a in
+    (match a with
+     | MirrorX(a) -> a
+     | C(_) -> a
+     | X -> a
+     | _ -> MirrorX (a))
+  | MirrorY (a) ->
+    let a = simplify a in
+    (match a with
+     | MirrorY(a) -> a
+     | C(_) -> a
+     | Y -> a
+     | _ -> MirrorY (a))
 ;;
 
 (* TODO: generate this thing *)
 let rec size t =
   match t with
   | X | Y | C _ -> 1
-  | Xor (a, b) | And (a, b) | Add (a, b) | Sub (a, b) | Mul (a, b) | Mod (a, b) ->
+  | Xor (a, b) | And (a, b) | Or(a, b) | Add (a, b) | Sub (a, b) | Mul (a, b) | Mod (a, b) ->
     size a + size b + 1
   | MirrorX a | MirrorY a -> size a + 1
 ;;
@@ -44,6 +97,7 @@ let rec eval ~x ~y t =
   | Y -> y
   | C c -> c % 256
   | Xor (a, b) -> eval ~x ~y a lxor eval ~x ~y b
+  | Or (a, b) -> eval ~x ~y a lor eval ~x ~y b
   | And (a, b) -> eval ~x ~y a land eval ~x ~y b
   | Add (a, b) -> (eval ~x ~y a + eval ~x ~y b) % 256
   | Sub (a, b) -> (eval ~x ~y a - eval ~x ~y b) % 256
