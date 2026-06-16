@@ -83,12 +83,20 @@ let rec simplify t =
 ;;
 
 (* TODO: generate this thing *)
-let rec size t =
+let rec stats t =
   match t with
-  | X | Y | C _ -> 1
-  | Xor (a, b) | And (a, b) | Or(a, b) | Add (a, b) | Sub (a, b) | Mul (a, b) | Mod (a, b) ->
-    size a + size b + 1
-  | MirrorX a | MirrorY a -> size a + 1
+  | X -> 1, true, false
+  | Y -> 1, false, true
+  | C _ -> 1, false, false
+  | Xor (a, b) | And (a, b) | Or(a, b) | Add (a, b) | Sub (a, b) | Mul (a, b) | Mod (a, b) -> (
+    let size_a, x_a, y_a = stats a in
+    let size_b, x_b, y_b = stats b in
+    size_a + size_b + 1, x_a || x_b, y_a || y_b
+  )
+  | MirrorX a | MirrorY a -> (
+    let size, x, y = stats a in
+    size + 1, x, y
+  )
 ;;
 
 let rec eval ~x ~y t =
@@ -166,8 +174,8 @@ let () =
                 ~seed:`Nondeterministic
                 quickcheck_generator)
          in
-         let s = size t in
-         if s > 5 then t else generate ()
+         let size, x, y = stats t in
+         if size > 5 && x && y then t else generate ()
        in
        let t = generate () in
        let equation = Sexp.to_string_hum ~indent:2 ~max_width:42 (sexp_of_t t) in
