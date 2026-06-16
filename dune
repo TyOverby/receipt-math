@@ -13,4 +13,4 @@
  (deps receipt_math.bc.js)
  (mode promote)
  (action
-  (copy receipt_math.bc.js receipt_math.js)))
+  (bash "cat receipt_math.bc.js | grep -v buildInfo > receipt_math.js")))
