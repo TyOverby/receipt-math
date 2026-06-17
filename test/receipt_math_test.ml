@@ -1,5 +1,5 @@
 open! Core
-module Expr = Receipt_math.Expr
+module Expr = Receipt_math.Expr_int
 
 (* The property under test: simplifying an expression must not change the value that
    [eval] produces at any coordinate. [x]/[y] are always in [0, 255]; [p] is the scale
