@@ -73,7 +73,7 @@ module Hue_delta = Bound_float (struct
 
 type param =
   { scale : Scale.t
-  ; gradient : [ `linear | `square | `sqrt ]
+  ; gradient : [ `linear | `square | `sqrt | `sin | `cos ]
   ; lightness : Lightness.t
   ; lightness_delta : Lightness_delta.t
   ; chroma : Chroma.t
@@ -276,6 +276,8 @@ let color_ramp image_data params ~gradient =
         | `linear -> pct
         | `square -> pct *. pct
         | `sqrt -> Float.sqrt pct
+        | `sin -> Float.(sin (pct * pi))
+        | `cos -> Float.((cos ((pct * pi) - pi) + 1.0) / 2.0)
       in
       let r, g, b = Oklab.to_rgb (Oklab.lerp a b pct) in
       Image_data.set image_data ~x ~y ~a:255 ~b ~g ~r
@@ -343,7 +345,9 @@ let () =
        color_ramp image_data params ~gradient:params.gradient;
        Ctx2d.put_image_data ctx3 image_data ~x:0 ~y:0;
        let gradient_str =
-         params.gradient |> [%sexp_of: [ `linear | `square | `sqrt ]] |> Sexp.to_string
+         params.gradient
+         |> [%sexp_of: [ `linear | `square | `sqrt | `sin | `cos ]]
+         |> Sexp.to_string
        in
        object%js
          val c = Canvas.dom_element c2
