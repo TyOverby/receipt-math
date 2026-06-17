@@ -202,10 +202,8 @@ let to_string_css { Oklab.l; a; b; alpha } =
 ;;
 
 let to_rgb (t : t) =
-  let { Rgba.r; g; b; alpha } = t |> Oklab.to_rgba_linear |> Rgba_linear.to_rgba in
-  let r, g, b, a =
-    float_to_byte r, float_to_byte g, float_to_byte b, float_to_byte alpha
-  in
+  let { Rgba.r; g; b; alpha = _ } = t |> Oklab.to_rgba_linear |> Rgba_linear.to_rgba in
+  let r, g, b = float_to_byte r, float_to_byte g, float_to_byte b in
   r, g, b
 ;;
 

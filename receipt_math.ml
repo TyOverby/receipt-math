@@ -26,6 +26,7 @@ end
 
 module Scale = struct
   include Int
+
   let quickcheck_generator = Base_quickcheck.Generator.int_inclusive 0 2
 end
 
@@ -85,7 +86,9 @@ let get_start_color' { lightness; chroma; hue; _ } =
   Oklab.Lch.create ~l:lightness ~c:chroma ~h:hue ()
 ;;
 
-let get_end_color' { lightness; lightness_delta; chroma; chroma_delta; hue; hue_delta } =
+let get_end_color'
+  { lightness; lightness_delta; chroma; chroma_delta; hue; hue_delta; scale = _ }
+  =
   let open Float in
   let l = (lightness + lightness_delta) % 1.0 in
   let c = (chroma + chroma_delta) % 0.3 in
@@ -182,9 +185,7 @@ let rec simplify t =
      | _ -> MirrorY a)
 ;;
 
-let rec pow base exp =
-  if exp = 0 then 1
-  else base * pow base (exp - 1)
+let rec pow base exp = if exp = 0 then 1 else base * pow base (exp - 1)
 
 (* TODO: generate this thing *)
 let rec stats t =
@@ -203,7 +204,7 @@ let rec stats t =
 ;;
 
 let rec eval ~x ~y p t =
-  let scaled = dimension / (pow 2 p.scale) in
+  let scaled = dimension / pow 2 p.scale in
   match t with
   | X -> x
   | Y -> y
@@ -222,12 +223,12 @@ let rec eval ~x ~y p t =
      | 0, _ -> 0
      | _ -> a % b)
     % 256
-  | MirrorX a -> eval ~x ~y:(Int.abs (Int.abs (scaled / 2 - y) - 1)) p a
-  | MirrorY a -> eval ~y ~x:(Int.abs (Int.abs (scaled / 2 - x) - 1)) p a
+  | MirrorX a -> eval ~x ~y:(Int.abs (Int.abs ((scaled / 2) - y) - 1)) p a
+  | MirrorY a -> eval ~y ~x:(Int.abs (Int.abs ((scaled / 2) - x) - 1)) p a
 ;;
 
 let evil_thing params image_data t =
-  let scaled = dimension / (pow 2 params.scale) in
+  let scaled = dimension / pow 2 params.scale in
   for y = 0 to scaled - 1 do
     for x = 0 to scaled - 1 do
       let color = eval ~x ~y params t in
@@ -304,23 +305,39 @@ let () =
          Quickcheck.random_value ~seed:`Nondeterministic quickcheck_generator_param
        in
        evil_thing params image_data t;
-      let scaled = dimension / (pow 2 params.scale) in
+       let scaled = dimension / pow 2 params.scale in
        tonemap scaled image_data;
        Ctx2d.put_image_data ctx image_data ~x:0 ~y:0;
        (* Copy 1 - upscaled *)
        let c2 = Canvas.create ~width:512 ~height:512 in
        let ctx2 = Canvas.ctx2d c2 in
-       Ctx2d.draw_canvas ~sw:(Float.of_int scaled) ~sh:(Float.of_int scaled) ~w:512.0 ~h:512.0 ctx2 c ~x:0.0 ~y:0.0;
+       Ctx2d.draw_canvas
+         ~sw:(Float.of_int scaled)
+         ~sh:(Float.of_int scaled)
+         ~w:512.0
+         ~h:512.0
+         ctx2
+         c
+         ~x:0.0
+         ~y:0.0;
        (* Copy 2 - colorized *)
        let c3 = Canvas.create ~width:512 ~height:512 in
        let ctx3 = Canvas.ctx2d c3 in
-       Ctx2d.draw_canvas ~sw:(Float.of_int scaled) ~sh:(Float.of_int scaled)  ~w:512.0 ~h:512.0 ctx3 c ~x:0.0 ~y:0.0;
+       Ctx2d.draw_canvas
+         ~sw:(Float.of_int scaled)
+         ~sh:(Float.of_int scaled)
+         ~w:512.0
+         ~h:512.0
+         ctx3
+         c
+         ~x:0.0
+         ~y:0.0;
        let image_data = Ctx2d.get_image_data ctx3 in
        color_ramp image_data params;
        Ctx2d.put_image_data ctx3 image_data ~x:0 ~y:0;
        object%js
          val c = Canvas.dom_element c2
          val colored = Canvas.dom_element c3
-         val e = Js.string (equation ^ (sprintf "\nScale: %d" params.scale))
+         val e = Js.string (equation ^ sprintf "\nScale: %d" params.scale)
        end)
 ;;
