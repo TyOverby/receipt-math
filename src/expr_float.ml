@@ -61,8 +61,11 @@ let rec eval ~x ~y t =
   (* [MirrorX] folds the [y] axis (leaving [x] untouched); [MirrorY] folds [x]. *)
   | MirrorX a -> eval ~x ~y:(fold y) a
   | MirrorY a -> eval ~x:(fold x) ~y a
-  | Sin a -> Float.(((sin (eval ~x ~y a) * pi) + 1.0) / 2.0)
-  | Cos a -> Float.(((cos (eval ~x ~y a) * pi) + 1.0) / 2.0)
+  (* [Sin]/[Cos] sweep a full period as the argument crosses [0, 1], remapped from the
+     natural [-1, 1] range of the trig functions into [0, 1]. Like every other operator they
+     stay within the unit interval -- the invariant [simplify]'s identities depend on. *)
+  | Sin a -> Float.((sin (eval ~x ~y a * (2. * pi)) + 1.) / 2.)
+  | Cos a -> Float.((cos (eval ~x ~y a * (2. * pi)) + 1.) / 2.)
 ;;
 
 (* Fold a node whose children are both constants into a single constant by evaluating it.
@@ -126,6 +129,9 @@ let simplify_node t =
   | MirrorX X -> X
   | MirrorY (C _ as a) -> a
   | MirrorY Y -> Y
+  (* sin / cos of a constant is a constant *)
+  | Sin (C _) -> const_fold t
+  | Cos (C _) -> const_fold t
   (* fallthrough *)
   | t -> t
 ;;
