@@ -65,23 +65,41 @@ canvas {
   }
   setupLoginSection();
   const p = window.location.hash === "#debug" ? ["X"] : [];
-  for (let i = 0; i < 50; ++i) {
-    const { c, e, colored } = foo(p[i]);
-    const div = document.createElement('div');
-    const magic = document.createElement('div');
-    magic.classList.add("magic");
-    const code = document.createElement('pre');
-    code.innerText = e;
+  const BATCH_SIZE = 10;
+  const THRESHOLD = 0.8;
 
-    magic.addEventListener('click', ev => {
-      sendCanvasToPrinter(c, e);
+  function generateBatch() {
+    var observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        if (observer.magicConsumed) return;
+        Object.assign(observer, { magicConsumed: true });
+        generateBatch();
+      }
     });
-    div.appendChild(code);
-    magic.appendChild(c);
-    magic.appendChild(colored);
-    div.appendChild(magic);
-    content.appendChild(div);
-    await nextFrame();
+
+    const scroll_triggers = [];
+    for (let i = 0; i < BATCH_SIZE; ++i) {
+      const { c, e, colored } = foo(p[i]);
+      const div = document.createElement('div');
+      const magic = document.createElement('div');
+      magic.classList.add("magic");
+      const code = document.createElement('pre');
+      code.innerText = e;
+
+      magic.addEventListener('click', ev => {
+        sendCanvasToPrinter(c, e);
+      });
+      div.appendChild(code);
+      magic.appendChild(c);
+      magic.appendChild(colored);
+      if (i >= math.floor(BATCH_SIZE * THRESHOLD)) {
+        scroll_triggers.push(magic);
+      }
+      div.appendChild(magic);
+      content.appendChild(div);
+      await nextFrame();
+    }
+    scroll_triggers.forEach(trigger => observer.observe(trigger));
   }
 </script>
 </body>
