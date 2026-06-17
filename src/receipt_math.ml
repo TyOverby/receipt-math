@@ -1,6 +1,7 @@
 open Core
 open Canvas2d
 open Js_of_ocaml
+module Expr = Expr
 open Expr
 
 module type Bounds = sig

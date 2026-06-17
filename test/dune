@@ -1,0 +1,7 @@
+(library
+ (name receipt_math_test)
+ (libraries core receipt_math)
+ (inline_tests
+  (modes js))
+ (preprocess
+  (pps ppx_jane)))
