@@ -15,7 +15,7 @@ type t =
   | Sub of t * t
   | Mul of t * t
   | Mod of t * t
-[@@deriving quickcheck, sexp_of, equal]
+[@@deriving quickcheck, sexp, equal]
 
 module type Bounds = sig
   val low : float
@@ -264,7 +264,7 @@ let color_ramp image_data params =
 
 let () =
   Js.Unsafe.global##.foo
-  := Js.wrap_callback (fun () ->
+  := Js.wrap_callback (fun (program: Js.js_string Js.t Js.Optdef.t) ->
        let c = Canvas.create ~width:256 ~height:256 in
        let ctx = Canvas.ctx2d c in
        let image_data = Ctx2d.get_image_data ctx in
@@ -282,7 +282,11 @@ let () =
          let size, x, y = stats t in
          if size > 5 && x && y then t else generate ()
        in
-       let t = generate () in
+       let t =
+         match Js.Optdef.to_option program with
+         | None -> generate ()
+         | Some s -> s |> Js.to_string |> Sexp.of_string |> t_of_sexp
+       in
        let equation = Sexp.to_string_hum ~indent:2 ~max_width:42 (sexp_of_t t) in
        let params =
          Quickcheck.random_value ~seed:`Nondeterministic quickcheck_generator_param

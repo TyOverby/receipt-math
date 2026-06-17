@@ -64,8 +64,9 @@ canvas {
     return new Promise(requestAnimationFrame);
   }
   setupLoginSection();
+  const p = window.location.hash === "#debug" ? ["X"] : [];
   for (let i = 0; i < 50; ++i) {
-    const { c, e, colored } = foo();
+    const { c, e, colored } = foo(p[i]);
     const div = document.createElement('div');
     const magic = document.createElement('div');
     magic.classList.add("magic");
