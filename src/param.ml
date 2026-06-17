@@ -54,8 +54,14 @@ module Hue_delta = Bound_float (struct
 
 type t =
   { scale : Scale.t
-  ; numeric : [ `int | `float ]
-  ; gradient : [ `linear | `square | `sqrt | `sin | `cos ]
+  ; numeric : [ `int [@quickcheck.weight 2.0] | `float [@quickcheck.weight 1.0] ]
+  ; gradient :
+      [ `linear [@quickcheck.weight 5.0]
+      | `square [@quickcheck.weight 1.0]
+      | `sqrt [@quickcheck.weight 1.0]
+      | `sin [@quickcheck.weight 1.0]
+      | `cos [@quickcheck.weight 1.0]
+      ]
   ; lightness : Lightness.t
   ; lightness_delta : Lightness_delta.t
   ; chroma : Chroma.t
