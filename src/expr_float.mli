@@ -16,6 +16,8 @@ type t =
   | Sub of t * t
   | Mul of t * t
   | Mod of t * t
+  | Sin of t
+  | Cos of t
 [@@deriving quickcheck, sexp]
 
 val generate : unit -> t

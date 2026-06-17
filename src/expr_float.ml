@@ -13,20 +13,22 @@ type t =
   | Sub of t * t
   | Mul of t * t
   | Mod of t * t
+  | Sin of t
+  | Cos of t
 [@@deriving quickcheck, sexp, equal]
 
 (* Everything in this module lives in the closed unit interval [0, 1]: [X] and [Y] are the
    normalised coordinates, every constant is clamped into range, and every operator is
-   chosen so that it maps [0, 1] inputs back into [0, 1] *continuously* (no jumps). This is
-   the floating-point cousin of [Expr_int], where the integer ops wrap mod 256. *)
+   chosen so that it maps [0, 1] inputs back into [0, 1] *continuously* (no jumps). This
+   is the floating-point cousin of [Expr_int], where the integer ops wrap mod 256. *)
 let clamp01 v = Float.max 0. (Float.min 1. v)
 
 (* A small denominator guard so [Mod] never divides by zero. *)
 let epsilon = 1e-6
 
-(* Reflect a coordinate around the centre of the unit interval, folding [0, 1] onto itself:
-   [fold 0. = 1.], [fold 0.5 = 0.], [fold 1. = 1.]. Continuous everywhere (it has a corner
-   at the centre but no jump). *)
+(* Reflect a coordinate around the centre of the unit interval, folding [0, 1] onto
+   itself: [fold 0. = 1.], [fold 0.5 = 0.], [fold 1. = 1.]. Continuous everywhere (it has
+   a corner at the centre but no jump). *)
 let fold v = Float.abs ((2. *. v) -. 1.)
 
 let rec eval ~x ~y t =
@@ -40,8 +42,8 @@ let rec eval ~x ~y t =
     let a = eval ~x ~y a
     and b = eval ~x ~y b in
     a +. b -. (2. *. a *. b)
-  (* Fuzzy AND / OR via min / max: continuous, and they obey the absorption and idempotence
-     laws that [simplify] relies on. *)
+  (* Fuzzy AND / OR via min / max: continuous, and they obey the absorption and
+     idempotence laws that [simplify] relies on. *)
   | And (a, b) -> Float.min (eval ~x ~y a) (eval ~x ~y b)
   | Or (a, b) -> Float.max (eval ~x ~y a) (eval ~x ~y b)
   (* Average rather than wrapping addition: stays in range with no discontinuity. *)
@@ -59,17 +61,19 @@ let rec eval ~x ~y t =
   (* [MirrorX] folds the [y] axis (leaving [x] untouched); [MirrorY] folds [x]. *)
   | MirrorX a -> eval ~x ~y:(fold y) a
   | MirrorY a -> eval ~x:(fold x) ~y a
+  | Sin a -> Float.(((sin (eval ~x ~y a) * pi) + 1.0) / 2.0)
+  | Cos a -> Float.(((cos (eval ~x ~y a) * pi) + 1.0) / 2.0)
 ;;
 
 (* Fold a node whose children are both constants into a single constant by evaluating it.
-   The coordinates are irrelevant: [const_fold] is only ever applied to nodes both of whose
-   children are [C], none of which depend on [x]/[y]. Folding through [eval] guarantees the
-   result matches [eval] exactly. *)
+   The coordinates are irrelevant: [const_fold] is only ever applied to nodes both of
+   whose children are [C], none of which depend on [x]/[y]. Folding through [eval]
+   guarantees the result matches [eval] exactly. *)
 let const_fold t = C (eval ~x:0. ~y:0. t)
 
-(* Simplify a single node, assuming its children are already simplified. Every rewrite here
-   is an exact algebraic identity of the operator semantics in [eval] above, so it preserves
-   the evaluated value bit-for-bit. *)
+(* Simplify a single node, assuming its children are already simplified. Every rewrite
+   here is an exact algebraic identity of the operator semantics in [eval] above, so it
+   preserves the evaluated value bit-for-bit. *)
 let simplify_node t =
   match t with
   | X | Y -> t
@@ -81,7 +85,7 @@ let simplify_node t =
   | Sub (C 0., a) -> a
   | Sub (a, b) when equal a b -> C 0.
   (* addition is the average; a averaged with itself is itself. (Note [Add (a, C 0.)] is
-     *not* [a] here: it is [a / 2].) *)
+   *not* [a] here: it is [a / 2].) *)
   | Add (C _, C _) -> const_fold t
   | Add (a, b) when equal a b -> a
   (* modulo (smooth); a zero numerator yields 0 regardless of the divisor *)
@@ -141,6 +145,8 @@ let rec simplify t =
     | Mod (a, b) -> Mod (simplify a, simplify b)
     | MirrorX a -> MirrorX (simplify a)
     | MirrorY a -> MirrorY (simplify a)
+    | Sin a -> Sin (simplify a)
+    | Cos a -> Cos (simplify a)
   in
   simplify_node t
 ;;
@@ -155,7 +161,7 @@ let rec stats t =
     let size_a, x_a, y_a = stats a in
     let size_b, x_b, y_b = stats b in
     size_a + size_b + 1, x_a || x_b, y_a || y_b
-  | MirrorX a | MirrorY a ->
+  | MirrorX a | MirrorY a | Sin a | Cos a ->
     let size, x, y = stats a in
     size + 1, x, y
 ;;
