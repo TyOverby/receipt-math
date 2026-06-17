@@ -2,102 +2,12 @@ open Core
 open Canvas2d
 open Js_of_ocaml
 module Expr = Expr
-open Expr
-
-module type Bounds = sig
-  val low : float
-  val high : float
-end
-
-module Scale = struct
-  include Int
-
-  let quickcheck_generator = Base_quickcheck.Generator.int_inclusive 0 2
-end
-
-module Bound_float (B : Bounds) = struct
-  include Float
-
-  let quickcheck_generator = Base_quickcheck.Generator.float_inclusive B.low B.high
-end
-
-module Z_to_one = Bound_float (struct
-    let low = 0.0
-    let high = 1.0
-  end)
-
-module Lightness = Bound_float (struct
-    let low = 0.0
-    let high = 1.0
-  end)
-
-module Lightness_delta = Bound_float (struct
-    let low = 0.25
-    let high = 0.75
-  end)
-
-module Chroma = Bound_float (struct
-    let low = 0.0
-    let high = 0.3
-  end)
-
-module Chroma_delta = Bound_float (struct
-    let low = 0.1
-    let high = 0.2
-  end)
-
-module Hue = Bound_float (struct
-    let low = 0.0
-    let high = 360.0
-  end)
-
-module Hue_delta = Bound_float (struct
-    let low = 0.0
-    let high = 360.0
-  end)
-
-type param =
-  { scale : Scale.t
-  ; gradient : [ `linear | `square | `sqrt | `sin | `cos ]
-  ; lightness : Lightness.t
-  ; lightness_delta : Lightness_delta.t
-  ; chroma : Chroma.t
-  ; chroma_delta : Chroma_delta.t
-  ; hue : Hue.t
-  ; hue_delta : Hue_delta.t
-  }
-[@@deriving quickcheck, sexp_of, equal]
-
-let get_start_color' { lightness; chroma; hue; _ } =
-  Oklab.Lch.create ~l:lightness ~c:chroma ~h:hue ()
-;;
-
-let get_end_color' { lightness; lightness_delta; chroma; chroma_delta; hue; hue_delta; _ }
-  =
-  let open Float in
-  let l = (lightness + lightness_delta) % 1.0 in
-  let c = (chroma + chroma_delta) % 0.3 in
-  let h = (hue + hue_delta) % 360.0 in
-  Oklab.Lch.create ~l ~c ~h ()
-;;
-
-let get_start_color params =
-  let a = get_start_color' params in
-  let b = get_end_color' params in
-  if Float.(Oklab.Lch.lightness a > Oklab.Lch.lightness b) then b else a
-;;
-
-let get_end_color params =
-  let a = get_start_color' params in
-  let b = get_end_color' params in
-  if Float.(Oklab.Lch.lightness a > Oklab.Lch.lightness b) then a else b
-;;
 
 let evil_thing params image_data t =
-  let scaled = dimension / Int.pow 2 params.scale in
+  let scaled = Expr.dimension / Int.pow 2 params.Param.scale in
   for y = 0 to scaled - 1 do
     for x = 0 to scaled - 1 do
-      let color = eval ~x ~y params.scale t in
+      let color = Expr.eval ~x ~y params.scale t in
       Image_data.set image_data ~x ~y ~g:color ~b:color ~r:color ~a:255
     done
   done
@@ -131,8 +41,8 @@ let tonemap dimension image_data =
 ;;
 
 let color_ramp image_data params ~gradient =
-  let a = params |> get_start_color |> Oklab.Lch.to_lab in
-  let b = params |> get_end_color |> Oklab.Lch.to_lab in
+  let a = Param.get_start_color params in
+  let b = Param.get_end_color params in
   for y = 0 to 511 do
     for x = 0 to 511 do
       let color = Image_data.get_r image_data ~x ~y in
@@ -154,33 +64,33 @@ let color_ramp image_data params ~gradient =
 let main () =
   Js.Unsafe.global##.foo
   := Js.wrap_callback (fun (program : Js.js_string Js.t Js.Optdef.t) ->
-       let c = Canvas.create ~width:dimension ~height:dimension in
+       let c = Canvas.create ~width:Expr.dimension ~height:Expr.dimension in
        let ctx = Canvas.ctx2d c in
        let image_data = Ctx2d.get_image_data ctx in
        (* let t = MirrorY (MirrorX (Xor (Mul(X, C(2)), Y))) in *)
        (* let () = Quickcheck.random_value in *)
        let rec generate () =
          let t =
-           simplify
+           Expr.simplify
              (Quickcheck.random_value
                 ~size:4
                 ~seed:`Nondeterministic
-                quickcheck_generator)
+                Expr.quickcheck_generator)
          in
-         let size, x, y = stats t in
+         let size, x, y = Expr.stats t in
          if size > 5 && x && y then t else generate ()
        in
        let t =
          match Js.Optdef.to_option program with
          | None -> generate ()
-         | Some s -> s |> Js.to_string |> Sexp.of_string |> t_of_sexp
+         | Some s -> s |> Js.to_string |> Sexp.of_string |> [%of_sexp: Expr.t]
        in
-       let equation = Sexp.to_string_hum ~indent:2 ~max_width:42 (sexp_of_t t) in
+       let equation = Sexp.to_string_hum ~indent:2 ~max_width:42 ([%sexp_of: Expr.t] t) in
        let params =
-         Quickcheck.random_value ~seed:`Nondeterministic quickcheck_generator_param
+         Quickcheck.random_value ~seed:`Nondeterministic Param.quickcheck_generator
        in
        evil_thing params image_data t;
-       let scaled = dimension / Int.pow 2 params.scale in
+       let scaled = Expr.dimension / Int.pow 2 params.scale in
        tonemap scaled image_data;
        Ctx2d.put_image_data ctx image_data ~x:0 ~y:0;
        (* Copy 1 - upscaled *)
