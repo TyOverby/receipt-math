@@ -68,23 +68,39 @@ let simplify_node t =
   | Mod (C _, C _) -> const_fold t
   | Mod (a, C 0) -> a
   | Mod (C 0, _) -> C 0
+  | Mod (_, C 1) -> C 0
   | Mod (a, b) when equal a b -> C 0
   (* multiplication *)
   | Mul (C _, C _) -> const_fold t
   | Mul (C 0, _) | Mul (_, C 0) -> C 0
   | Mul (x, C 1) | Mul (C 1, x) -> x
-  (* exclusive or *)
+  (* exclusive or; [a lxor 0 = a] *)
   | Xor (C _, C _) -> const_fold t
+  | Xor (a, C 0) | Xor (C 0, a) -> a
   | Xor (a, b) when equal a b -> C 0
-  (* and *)
+  (* and; every [eval] result is in [0, 255], so [a land 255 = a] *)
   | And (C _, C _) -> const_fold t
   | And (C 0, _) | And (_, C 0) -> C 0
+  | And (a, C 255) | And (C 255, a) -> a
   | And (a, b) when equal a b -> a
-  (* or *)
+  (* absorption: [a land (a lor c) = a] *)
+  | And (a, Or (b, c)) when equal a b || equal a c -> a
+  | And (Or (b, c), a) when equal a b || equal a c -> a
+  (* idempotence: [a land (a land c) = a land c] *)
+  | And (a, (And (b, c) as inner)) when equal a b || equal a c -> inner
+  | And ((And (b, c) as inner), a) when equal a b || equal a c -> inner
+  (* or; every [eval] result is in [0, 255], so [a lor 255 = 255] *)
   | Or (C _, C _) -> const_fold t
+  | Or (C 255, _) | Or (_, C 255) -> C 255
   | Or (C 0, b) -> b
   | Or (a, C 0) -> a
   | Or (a, b) when equal a b -> a
+  (* absorption: [a lor (a land c) = a] *)
+  | Or (a, And (b, c)) when equal a b || equal a c -> a
+  | Or (And (b, c), a) when equal a b || equal a c -> a
+  (* idempotence: [a lor (a lor c) = a lor c] *)
+  | Or (a, (Or (b, c) as inner)) when equal a b || equal a c -> inner
+  | Or ((Or (b, c) as inner), a) when equal a b || equal a c -> inner
   (* mirrors *)
   (* [MirrorX] only changes the [y] coordinate, so anything that does not depend on [y]
      passes through unchanged. Double-mirror is *not* an identity: [eval]'s reflection is

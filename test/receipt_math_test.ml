@@ -42,6 +42,46 @@ let%expect_test "constant folding matches eval" =
   [%expect {| direct=255 simplified=255 |}]
 ;;
 
+(* The new algebraic identities each fire and reduce the expression. Correctness
+   (that they preserve [eval]) is covered by the property test below. *)
+let show t = print_s [%sexp (Expr.simplify t : Expr.t)]
+
+let%expect_test "xor with zero" =
+  show Expr.(Xor (X, C 0));
+  [%expect {| X |}];
+  show Expr.(Xor (C 0, X));
+  [%expect {| X |}]
+;;
+
+let%expect_test "and with all-ones" =
+  show Expr.(And (X, C 255));
+  [%expect {| X |}]
+;;
+
+let%expect_test "or with all-ones" =
+  show Expr.(Or (X, C 255));
+  [%expect {| (C 255) |}]
+;;
+
+let%expect_test "mod by one" =
+  show Expr.(Mod (X, C 1));
+  [%expect {| (C 0) |}]
+;;
+
+let%expect_test "and/or absorption" =
+  show Expr.(And (X, Or (X, Y)));
+  [%expect {| X |}];
+  show Expr.(Or (X, And (Y, X)));
+  [%expect {| X |}]
+;;
+
+let%expect_test "and/or idempotent nesting" =
+  show Expr.(And (X, And (X, Y)));
+  [%expect {| (And X Y) |}];
+  show Expr.(Or (Or (Y, X), X));
+  [%expect {| (Or Y X) |}]
+;;
+
 let%test_unit "simplify preserves eval" =
   let gen =
     let open Quickcheck.Generator.Let_syntax in
