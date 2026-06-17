@@ -321,6 +321,6 @@ let () =
        object%js
          val c = Canvas.dom_element c2
          val colored = Canvas.dom_element c3
-         val e = Js.string (equation ^ (sprintf "Scale: %d" params.scale))
+         val e = Js.string (equation ^ (sprintf "\nScale: %d" params.scale))
        end)
 ;;
