@@ -121,8 +121,14 @@ img, canvas {
   // Load the bitmap font and hand it to OCaml before drawing any images, so the
   // program text can be overlaid onto them.
   const fontText = await (await fetch("departure.json")).text();
-  window.set_font(fontText);
-  generateBatch();
+  (function loop() {
+    if (window.set_font) {
+      window.set_font(fontText);
+      generateBatch();
+    } else {
+      setTimeout(loop, 100);
+    }
+  })();
 </script>
   </div>
   </div>
