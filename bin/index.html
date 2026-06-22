@@ -117,6 +117,11 @@ img, canvas {
     }
     scroll_triggers.forEach(trigger => observer.observe(trigger));
   }
+
+  // Load the bitmap font and hand it to OCaml before drawing any images, so the
+  // program text can be overlaid onto them.
+  const fontText = await (await fetch("departure.json")).text();
+  window.set_font(fontText);
   generateBatch();
 </script>
   </div>

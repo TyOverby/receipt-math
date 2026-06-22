@@ -127,6 +127,16 @@ let to_greyscale image_data grid ~size ~out ~filter =
 ;;
 
 let main () =
+  (* The bitmap font is fetched from [departure.json] by the page and handed to
+     us as JSON text via [set_font] before any image is generated. *)
+  let font_ref = ref None in
+  (* Set the global by explicit string name: [##.set_font] would mangle the
+     underscore in the JavaScript property name. *)
+  Js.Unsafe.set
+    Js.Unsafe.global
+    "set_font"
+    (Js.wrap_callback (fun (json : Js.js_string Js.t) ->
+       font_ref := Some (Font.of_json_string (Js.to_string json))));
   Js.Unsafe.global##.foo
   := Js.wrap_callback (fun (program : Js.js_string Js.t Js.Optdef.t) ->
        let params = Param.random () in
@@ -155,12 +165,21 @@ let main () =
        let ctx2 = Canvas.ctx2d c2 in
        let image_data = Ctx2d.get_image_data ctx2 in
        to_greyscale image_data grid ~size ~out ~filter;
+       (* Overlay the program text using the greyscale palette: white on black. *)
+       Option.iter !font_ref ~f:(fun font ->
+         Font.draw_label font image_data ~text:equation ~fg:(255, 255, 255) ~bg:(0, 0, 0));
        Ctx2d.put_image_data ctx2 image_data ~x:0 ~y:0;
        (* Copy 2 - colorized *)
        let c3 = Canvas.create ~width:out ~height:out in
        let ctx3 = Canvas.ctx2d c3 in
        let image_data = Ctx2d.get_image_data ctx3 in
        color_ramp image_data params grid ~size ~out ~filter ~gradient:(Param.gradient params);
+       (* Overlay the program text using the image's own ramp: the light end of
+          the gradient for the text over the dark end as the background rect. *)
+       Option.iter !font_ref ~f:(fun font ->
+         let light = Oklab.to_rgb (Param.get_end_color params) in
+         let dark = Oklab.to_rgb (Param.get_start_color params) in
+         Font.draw_label font image_data ~text:equation ~fg:light ~bg:dark);
        Ctx2d.put_image_data ctx3 image_data ~x:0 ~y:0;
        let gradient_str =
          params
