@@ -144,7 +144,7 @@ let main () =
        in
        let equation =
          match t with
-         | Int t -> Sexp.to_string_hum ~indent:2 ~max_width:42 ([%sexp_of: Expr_int.t] t)
+         | Int t -> Expr_int.to_string t
          | Float t -> Sexp.to_string_hum ~indent:2 ~max_width:42 ([%sexp_of: Expr_float.t] t)
        in
        let grid, size, filter = render params t in
